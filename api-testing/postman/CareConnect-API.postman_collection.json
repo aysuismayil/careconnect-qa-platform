@@ -1,0 +1,528 @@
+{
+  "info": {
+    "_postman_id": "8f1c2b40-0000-4c9a-9e2b-example00002",
+    "name": "CareConnect API (Sample QA Collection)",
+    "description": "Sanitized sample Postman collection demonstrating my API testing approach on the CareConnect caregiving marketplace project. All URLs, IDs, and tokens are synthetic placeholders. Used for functional, negative, boundary, and concurrency-style API testing alongside manual UI testing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login - valid credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains accessToken and refreshToken\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"accessToken\");",
+                  "    pm.expect(body).to.have.property(\"refreshToken\");",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.environment.set(\"accessToken\", body.accessToken);",
+                  "    pm.environment.set(\"refreshToken\", body.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - wrong password (negative)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"WrongPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"Error message is generic (no field-specific hint)\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message.toLowerCase()).to.not.include(\"password\");",
+                  "    pm.expect(body.message.toLowerCase()).to.include(\"incorrect\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "BUG-004 repro - reuse token after logout (should 401, currently 200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "me"]
+            },
+            "description": "Regression check for BUG-004. Run this immediately after the Logout request, reusing the same accessToken value. Expected: 401. Actual (at time of filing): 200."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"BUG-004: token should be invalid after logout (expect 401)\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "item": [
+        {
+          "name": "Search caregivers within radius",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search?lat=40.7357&lng=-74.1724&radiusMiles=10&service=elder_care",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"],
+              "query": [
+                { "key": "lat", "value": "40.7357" },
+                { "key": "lng", "value": "-74.1724" },
+                { "key": "radiusMiles", "value": "10" },
+                { "key": "service", "value": "elder_care" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array of results\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.results).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "BUG-001 repro - caregiver at exact 10.00mi boundary (should be included)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search?lat=40.7357&lng=-74.1724&radiusMiles=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"],
+              "query": [
+                { "key": "lat", "value": "40.7357" },
+                { "key": "lng", "value": "-74.1724" },
+                { "key": "radiusMiles", "value": "10" }
+              ]
+            },
+            "description": "Regression check for BUG-001. caregiverId (CG-1042) is seeded at exactly 10.00mi from the search origin and should appear in results."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"BUG-001: boundary caregiver should be included in results\", function () {",
+                  "    const body = pm.response.json();",
+                  "    const ids = body.results.map(r => r.caregiverId);",
+                  "    pm.expect(ids).to.include(pm.environment.get(\"caregiverId\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search - invalid negative radius (negative case)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search?lat=40.7357&lng=-74.1724&radiusMiles=-5",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"],
+              "query": [
+                { "key": "lat", "value": "40.7357" },
+                { "key": "lng", "value": "-74.1724" },
+                { "key": "radiusMiles", "value": "-5" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 for invalid radius\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Booking",
+      "item": [
+        {
+          "name": "Create hold on slot",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slotId\": \"{{slotId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/hold",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "hold"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Hold has an expiresAt roughly 10 minutes out\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"expiresAt\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slotId\": \"{{slotId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "confirm"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has expected booking fields\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"bookingId\");",
+                  "    pm.expect(body).to.have.property(\"status\");",
+                  "    pm.expect(body.status).to.be.oneOf([\"pending_caregiver_response\", \"confirmed\"]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.environment.set(\"bookingId\", pm.response.json().bookingId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm booking - nonexistent slot (negative)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slotId\": \"SLOT-DOES-NOT-EXIST-9999\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "confirm"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"No stack trace leaked in response body\", function () {",
+                  "    pm.expect(pm.response.text().toLowerCase()).to.not.include(\"at java.\");",
+                  "    pm.expect(pm.response.text().toLowerCase()).to.not.include(\"traceback\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Confirm payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"paymentMethodId\": \"pm_test_sample\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "confirm"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Total charged matches expected calculation\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(String(body.totalCharged)).to.eql(pm.environment.get(\"expectedTotal\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "BUG-002 repro - concurrent confirm on same slot (Runner: 2 iterations, 0ms delay)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slotId\": \"{{slotId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "confirm"]
+            },
+            "description": "Run via Collection Runner with 2 iterations and 0ms delay between requests (or fire from two Runner instances simultaneously) to reproduce BUG-002. Expected: exactly one 200, one 409/'no longer available'. Actual (at time of filing): both can return 200 intermittently."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"BUG-002: response is either success or a clear conflict, logged for manual tally across iterations\", function () {",
+                  "    pm.expect([200, 409]).to.include(pm.response.code);",
+                  "});",
+                  "console.log(\"Iteration result:\", pm.response.code, pm.response.json());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "BUG-003 repro - retry without idempotency key (should not double charge)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"paymentMethodId\": \"pm_test_sample\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "confirm"]
+            },
+            "description": "Run this request twice in a row for the same bookingId with no Idempotency-Key header. Then cross-check the payments table for duplicate charges (see database-validation/sql-validation-queries.md)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Response returns 200 (charge accepted)\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "console.log(\"Charge ID this run:\", pm.response.json().chargeId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment - tampered amount (security/negative)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"paymentMethodId\": \"pm_test_sample\",\n  \"amount\": 1.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "confirm"]
+            },
+            "description": "Sends a client-supplied amount far below the real price. Server must ignore/reject this and use its own server-side calculated price."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Charged amount is NOT the tampered client value\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.totalCharged).to.not.eql(1.00);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
