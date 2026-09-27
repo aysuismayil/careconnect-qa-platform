@@ -57,6 +57,7 @@ careconnect-qa-platform/
 | I want to see... | Go to |
 |---|---|
 | How I plan and scope testing | [`docs/01-test-plan-and-strategy.md`](docs/01-test-plan-and-strategy.md) |
+| How I would approach testing this app from scratch | `docs/04-testing-approach.md` |
 | How I review requirements before dev starts | [`docs/02-requirements-and-acceptance-criteria-review.md`](docs/02-requirements-and-acceptance-criteria-review.md) |
 | My manual test cases | [`test-cases/`](test-cases/) |
 | My strongest bug reports | [`bug-reports/`](bug-reports/) |
